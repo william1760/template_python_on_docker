@@ -162,5 +162,4 @@ cython_debug/
 .idea/
 
 /src/LOGS/
-/src/*.json
-/src/*.key
+/src/Token.key
