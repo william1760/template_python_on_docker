@@ -33,6 +33,7 @@ class Telegram:
     def __get_chat_id(self, chat_name: str, bot_token: str):
         """
         Retrieve the chat ID associated with a chat name and bot token.
+        URL: https://api.telegram.org/bot<api token>/getUpdates
 
         Args:
             chat_name (str): The name of the chat.
@@ -141,6 +142,8 @@ class Telegram:
 
 if __name__ == '__main__':
     default_chat = 'TG_TESTING'
+    default_message = f"[Telegram_Bot] Test message @ {datetime.datetime.now().strftime('%Y %m %d %H:%M:%S')}"
+
     parser = argparse.ArgumentParser(description="User input for the Telegram API name and token generation")
     parser.add_argument(
         "--display_token",
@@ -152,6 +155,11 @@ if __name__ == '__main__':
         default=default_chat,
         help="Name of the Telegram chat room to use",
     )
+    parser.add_argument(
+        "--chat_messages",
+        default=default_message,
+        help="Name of the Telegram chat room to use",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)  # Configure logging level
@@ -161,5 +169,5 @@ if __name__ == '__main__':
     if args.display_token:
         telegram_instance.display_token(args.chat_name)
     else:
-        telegram_message = f"[Telegram_Bot] Test message @ {datetime.datetime.now().strftime('%Y %m %d %H:%M:%S')}"
+        telegram_message = args.chat_messages
         telegram_instance.send_message(telegram_message)
