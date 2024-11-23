@@ -12,18 +12,21 @@ from Telegram import Telegram
 from ConsoleTitle import ConsoleTitle
 from TimeToolkit import TimeToolkit
 
+# Configuration variables
 title = "template_python_on_docker"
 log_file_name = 'template_python_on_docker'
 result_message = ''
 domain = ''
 dns_server = ''
-interval = None
-telegram_chatroom = "telegram_test_chatroom"
 key_manager = KeyManager()
+
+# Variables for Config.json
+interval = None
 config_path = os.path.join(os.getcwd(), "config.json")
 misfire_grace_time = 300
 schedule_time = [0, 0]
 schedule = "00:00"
+telegram_chatroom = ""
 
 
 def load_config(file_path):
@@ -40,8 +43,8 @@ def load_config(file_path):
             config_json = json.load(file)
 
         # Validate the contents
-        if "interval" not in config_json or "schedule" not in config_json:
-            load_config_message = "Configuration file is missing 'schedule' or 'interval' keys."
+        if "interval" not in config_json or "schedule" not in config_json or "telegram" not in config_json:
+            load_config_message = "Configuration file is missing 'schedule' or 'interval' or 'telegram' keys."
             logging.warning(load_config_message)
             print(f'[load_config] {load_config_message}')
             return None
@@ -71,14 +74,20 @@ def get_user_input():
 
     input_schedule = input("Enter the schedule time (e.g., 13:30): ").strip()
 
+    input_telegram = input("Enter the Telegram chatroom: ").strip()
+
     # Return the collected data as a dictionary
-    result_input_message = f'Input values: interval={input_interval}, schedule={input_schedule}'
+    result_input_message = (f'Input values: '
+                            f'interval={input_interval},'
+                            f'schedule={input_schedule},'
+                            f'schedule={input_telegram}')
     logging.debug(result_input_message)
     print(result_input_message)
 
     return {
         "interval": input_interval,
-        "schedule": input_schedule
+        "schedule": input_schedule,
+        "telegram": input_telegram
     }
 
 
@@ -137,8 +146,12 @@ if __name__ == "__main__":
         if config:
             interval = config["interval"]
             schedule = config["schedule"]
+            telegram_chatroom = config["telegram"]
             schedule_time = TimeToolkit.parse_time_string(config["schedule"])
-            config_message = f"Loaded configuration from {config_path}: interval={interval}, schedule={schedule_time}"
+            config_message = (f"Loaded configuration from {config_path}: "
+                              f"interval={interval}, "
+                              f"schedule={schedule_time}, "
+                              f"telegram={telegram_chatroom}")
             logging.debug(config_message)
             print(config_message)
 

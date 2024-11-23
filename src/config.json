@@ -1,4 +1,5 @@
 {
     "interval": 0,
-    "schedule": "10:00"
+    "schedule": "00:07",
+    "telegram": "telegram_test_chatroom"
 }
