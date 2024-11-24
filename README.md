@@ -1,22 +1,31 @@
 
-# Template Python Project with Docker
+# Template for Python projects that runs as a Docker image
 
-A Python-based application designed for task scheduling, configuration management, and Telegram notifications, packaged for use with Docker.
+A Python-based application for task scheduling, configuration management, and Telegram notifications, packaged as a Docker image.
 
 ---
 
 ## Usage
 
-1. Update `DockerCtrl.config` file
-    ```bash
-    docker_image="template_python_on_docker"
-    image_tag="latest"
-    bash_type="SH"
-    restart_policy="UNLESS_STOPPED"
-    setup="python main.py --setup"
-     ```
+## 1. Update `DockerCtrl.config` file
+```bash
+docker_image="template_python_on_docker"
+image_tag="latest"
+bash_type="SH"
+restart_policy="UNLESS_STOPPED"
+setup="python main.py --setup"
+```
 
-2. Update `config.json` file and located in the `/src` directory
+### Fields:
+- `docker_image`: Name of the Docker image to be used.
+- `image_tag`: Tag for the Docker image (e.g., "latest").
+- `bash_type`: Type of shell to be used (`SH` or `BASH`).
+- `restart_policy`: Docker container restart policy (`UNLESS_STOPPED`, `ALWAYS`, etc.).
+- `setup`: The command to set up the application inside the container.
+
+---
+
+## 2. Update `config.json` file and located in the `/src` directory
 
    ```json
    {
@@ -30,7 +39,7 @@ A Python-based application designed for task scheduling, configuration managemen
    }
    ```
 
-   Fields:
+### Fields:
    - `title`: The title of the application.
    - `log_file_name`: The name of the log file.
    - `interval`: Interval in minutes for tasks.

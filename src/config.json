@@ -5,5 +5,5 @@
     "schedule": "14:28",
     "schedule_misfire_grace_time": 300,
     "notification": "y",
-    "telegram": "TG_TESTING"
+    "telegram": "TESTING"
 }
