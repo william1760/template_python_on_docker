@@ -1,113 +1,91 @@
 import argparse
 import logging
-import contextlib
-import json
-import os
 from io import StringIO
+from contextlib import redirect_stdout
 from tzlocal import get_localzone
 from apscheduler.schedulers.blocking import BlockingScheduler
 from Log4Me import Log4Me
-from KeyManager import KeyManager
 from Telegram import Telegram
 from ConsoleTitle import ConsoleTitle
 from TimeToolkit import TimeToolkit
+from config_manager import ConfigManager
+from input_helper import InputHelper
 
 # Configuration variables
-title = "template_python_on_docker"
-log_file_name = 'template_python_on_docker'
-result_message = ''
-domain = ''
-dns_server = ''
-key_manager = KeyManager()
-
-# Variables for Config.json
-interval = None
-config_path = os.path.join(os.getcwd(), "config.json")
-misfire_grace_time = 300
-schedule_time = [0, 0]
-schedule = "00:00"
+config_path = "config.json"
+title = ""
+notification = ""
 telegram_chatroom = ""
 
 
-def load_config(file_path):
-    # Check if the file exists
-    if not os.path.exists(file_path):
-        load_config_message = f"Configuration file '{file_path}' is missing."
-        logging.warning(load_config_message)
-        print(f'[load_config] {load_config_message}')
-        return None
+def setup_config():
+    global config_path
+    config_data = InputHelper.get_user_input()
+    ConfigManager.save_config(config_data, config_path)
+    print(config_data)
 
-    try:
-        # Open and load the JSON file
-        with open(file_path, 'r') as file:
-            config_json = json.load(file)
-
-        # Validate the contents
-        if "interval" not in config_json or "schedule" not in config_json or "telegram" not in config_json:
-            load_config_message = "Configuration file is missing 'schedule' or 'interval' or 'telegram' keys."
-            logging.warning(load_config_message)
-            print(f'[load_config] {load_config_message}')
-            return None
-
-        # Return the valid config data
-        return config_json
-
-    except json.JSONDecodeError:
-        load_config_message = "Configuration file contains invalid JSON."
-        logging.warning(load_config_message)
-        print(f'[load_config] {load_config_message}')
-        return None
+    if config_data["notification"] == 'y':
+        tg_chat_room = config_data['telegram']
+        tg = Telegram(tg_chat_room)
+        print(f'[{title}][SETUP] Telegram chat id - "{tg_chat_room}:{tg.telegram_token}" is ready.')
 
 
-def get_user_input():
-    """Prompt the user for input, validate, and return as a dictionary."""
-    # Prompt and validate interval
-    while True:
-        try:
-            input_interval = int(input("Enter the interval in minutes (positive integer): ").strip())
-            if input_interval >= 0:
-                break
-            else:
-                print("Interval must be a positive integer.")
-        except ValueError:
-            print("Invalid input. Please enter a positive integer for interval.")
+def load_config():
+    """Load configuration and log the result."""
+    global config_path
+    file_config = ConfigManager.load_config(config_path)
 
-    input_schedule = input("Enter the schedule time (e.g., 13:30): ").strip()
-
-    input_telegram = input("Enter the Telegram chatroom: ").strip()
-
-    # Return the collected data as a dictionary
-    result_input_message = (f'Input values: '
-                            f'interval={input_interval},'
-                            f'schedule={input_schedule},'
-                            f'schedule={input_telegram}')
-    logging.debug(result_input_message)
-    print(result_input_message)
-
-    return {
-        "interval": input_interval,
-        "schedule": input_schedule,
-        "telegram": input_telegram
-    }
+    if file_config:
+        load_title = file_config["title"]
+        load_log_file_name = file_config["log_file_name"]
+        load_interval = file_config["interval"]
+        load_schedule = file_config["schedule"]
+        load_telegram_chatroom = file_config["telegram"]
+        load_schedule_time = TimeToolkit.parse_time_string(load_schedule)
+        config_message = (f"Loaded configuration: "
+                          f"title={load_title}, "
+                          f"log_file_name={load_log_file_name}, "
+                          f"interval={load_interval}, "
+                          f"interval={load_schedule}, "
+                          f"schedule={load_schedule_time}, "
+                          f"telegram={load_telegram_chatroom}")
+        logging.debug(config_message)
+        print(config_message)
+        return file_config
+    else:
+        raise FileNotFoundError("Configuration not found!")
 
 
-def save_config(data, file_path="config.json"):
-    """Save the configuration data to a JSON file."""
-    try:
-        with open(file_path, 'w') as file:
-            json.dump(data, file, indent=4)
+def setup_scheduler(input_template_main, input_config):
+    """Set up the scheduler with the loaded configuration."""
+    scheduler = BlockingScheduler(timezone=str(get_localzone()))
+    interval = input_config["interval"]
+    misfire_grace_time = input_config["schedule_misfire_grace_time"]
+    schedule_time = TimeToolkit.parse_time_string(input_config["schedule"])
 
-        result_save_message = f"Configuration saved to {file_path}"
-        logging.info(result_save_message)
-        print(result_save_message)
-    except IOError as e:
-        result_message = f"Error saving configuration: {e}"
-        logging.error(result_message)
-        print(result_message)
+    if interval == 0:
+        scheduler.add_job(input_template_main, 'cron', hour=schedule_time[0], minute=schedule_time[1],
+                          misfire_grace_time=misfire_grace_time)
+        scheduled_job_msg = f"Scheduled jobs: {input_config['schedule']}"
+    else:
+        scheduler.add_job(input_template_main, 'interval', minutes=int(interval),
+                          misfire_grace_time=misfire_grace_time)
+        scheduled_job_msg = f"Scheduled jobs: interval {interval} minute(s)."
+
+    print(scheduled_job_msg)
+    logging.info(scheduled_job_msg)
+
+    with redirect_stdout(StringIO()) as buffer:
+        scheduler.print_jobs()
+    scheduler_msg = buffer.getvalue().rstrip('\n')
+    logging.info(scheduler_msg)
+    print(scheduler_msg)
+
+    return scheduler
 
 
 def template_function():
-    template_function_message = f'called template function.'
+    template_function_message = f'called <template_function>.'
     print(template_function_message)
     logging.info(template_function_message)
 
@@ -115,72 +93,48 @@ def template_function():
 
 
 def template_main():
+    global title, telegram_chatroom, notification
     return_message = template_function()
-    telegram_message = f'[template_python_on_docker] {return_message}'
 
-    print(telegram_message)
-    telegram_instance = Telegram(telegram_chatroom)
-    telegram_instance.send_message(telegram_message)
+    if notification.lower() == 'y':
+        telegram_message = f'[{title}] Sending Telegram: {return_message}'
+        print(telegram_message)
+        telegram_instance = Telegram(telegram_chatroom)
+        telegram_instance.send_message(telegram_message)
+    else:
+        print(f'[{title}] Message: {return_message}')
 
 
 if __name__ == "__main__":
-    ConsoleTitle.show_title(title, True, 50)
-    Log4Me.init_logging(log_file_name)
+    try:
+        config = ConfigManager.load_config(config_path)
 
-    parser = argparse.ArgumentParser(description=f"{template_main}")
-    parser.add_argument('--setup', action="store_true")
-    parser.add_argument('--dryrun', action="store_true")
+        title = config["title"]
+        log_file_name = config["log_file_name"]
+        notification = config["notification"]
+        telegram_chatroom = config["telegram"]
 
-    args = parser.parse_args()
+        ConsoleTitle.show_title(title, True, 50)
+        Log4Me.init_logging()
 
-    if args.setup:
-        config_data = get_user_input()
-        save_config(config_data)
+        parser = argparse.ArgumentParser(description=f"{template_main}")
+        parser.add_argument('--setup', action="store_true")
+        parser.add_argument('--run', action="store_true")
 
-        if not key_manager.exists(telegram_chatroom):
-            telegram = Telegram(telegram_chatroom)
-            print(f'[{title}][SETUP] Telegram chat id - "{telegram_chatroom}" is ready.')
-    else:
-        config = load_config(config_path)
+        args = parser.parse_args()
 
-        if config:
-            interval = config["interval"]
-            schedule = config["schedule"]
-            telegram_chatroom = config["telegram"]
-            schedule_time = TimeToolkit.parse_time_string(config["schedule"])
-            config_message = (f"Loaded configuration from {config_path}: "
-                              f"interval={interval}, "
-                              f"schedule={schedule_time}, "
-                              f"telegram={telegram_chatroom}")
-            logging.debug(config_message)
-            print(config_message)
-
-        if args.dryrun:
+        if args.setup:
+            setup_config()
+        elif args.run:
             template_main()
         else:
-            scheduler = BlockingScheduler(timezone=str(get_localzone()))
-            if interval == 0:
-                scheduler.add_job(template_main, 'cron', hour=schedule_time[0], minute=schedule_time[1],
-                                  misfire_grace_time=misfire_grace_time)
-                scheduled_job_msg = f"Scheduled jobs: {schedule}"
-            else:
-                scheduler.add_job(template_main, 'interval', minutes=int(interval),
-                                  misfire_grace_time=misfire_grace_time)
-                scheduled_job_msg = f"Scheduled jobs: interval {interval} minute(s)."
-
-            print(scheduled_job_msg)
-            logging.info(scheduled_job_msg)
-
-            # Capture the print_jobs() output into a string
-            with contextlib.redirect_stdout(StringIO()) as buffer:
-                scheduler.print_jobs()
-            scheduler_msg = buffer.getvalue().rstrip('\n')
-            logging.info(scheduler_msg)
-            print(scheduler_msg)
-
             try:
-                scheduler.start()
+                main_scheduler = setup_scheduler(template_main, config)
+                main_scheduler.start()
             except KeyboardInterrupt:
                 keyboard_interrupt_message = "Ctrl-C pressed. Stopping the scheduler..."
                 print(keyboard_interrupt_message)
                 logging.warning(keyboard_interrupt_message)
+    except FileNotFoundError as e:
+        print(str(e))
+        logging.error(str(e))

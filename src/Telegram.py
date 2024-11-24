@@ -13,6 +13,7 @@ class Telegram:
 
         # Debug
         # logging.debug(f'[Telegram] telegram_bot: {self.telegram_bot}, telegram_token: {self.telegram_token}
+
     def __get_token_key(self, token_name: str):
         """
         Retrieve the bot token key from the KeyManager or create a new one if it doesn't exist.
@@ -145,21 +146,9 @@ if __name__ == '__main__':
     default_message = f"[Telegram_Bot] Test message @ {datetime.datetime.now().strftime('%Y %m %d %H:%M:%S')}"
 
     parser = argparse.ArgumentParser(description="User input for the Telegram API name and token generation")
-    parser.add_argument(
-        "--display_token",
-        action="store_true",
-        help="Generate a new Telegram Bot and Chat Id",
-    )
-    parser.add_argument(
-        "--chat_name",
-        default=default_chat,
-        help="Name of the Telegram chat room to use",
-    )
-    parser.add_argument(
-        "--chat_messages",
-        default=default_message,
-        help="Name of the Telegram chat room to use",
-    )
+    parser.add_argument("--display_token", action="store_true", help="Generate a new Telegram Bot and Chat Id", )
+    parser.add_argument("--chat_name", default=default_chat, help="Name of the Telegram chat room to use", )
+    parser.add_argument("--chat_messages", default=default_message, help="Name of the Telegram chat room to use", )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)  # Configure logging level
@@ -169,5 +158,7 @@ if __name__ == '__main__':
     if args.display_token:
         telegram_instance.display_token(args.chat_name)
     else:
+        print(f'[Telegram.py] chat_room= "{default_chat}", chat_id= "{telegram_instance.telegram_token}", '
+              f'chat_message= "{args.chat_messages}"')
         telegram_message = args.chat_messages
         telegram_instance.send_message(telegram_message)

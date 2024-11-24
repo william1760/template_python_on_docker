@@ -1,5 +1,9 @@
 {
+    "title": "template_python_on_docker",
+    "log_file_name": "template_python_on_docker",
     "interval": 0,
-    "schedule": "00:07",
-    "telegram": "telegram_test_chatroom"
+    "schedule": "14:28",
+    "schedule_misfire_grace_time": 300,
+    "notification": "y",
+    "telegram": "TG_TESTING"
 }
