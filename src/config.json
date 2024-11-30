@@ -2,8 +2,8 @@
     "title": "template_python_on_docker",
     "log_file_name": "template_python_on_docker",
     "interval": 0,
-    "schedule": "14:28",
+    "schedule": "10:03",
     "schedule_misfire_grace_time": 300,
-    "notification": "y",
-    "telegram": "TESTING"
+    "notification": "n",
+    "telegram": ""
 }
