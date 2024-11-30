@@ -20,15 +20,10 @@ telegram_chatroom = ""
 
 def setup_config():
     global config_path
+
     config_data = InputHelper.get_user_input()
     ConfigManager.save_config(config_data, config_path)
-    print(config_data)
-
-    if config_data["notification"] == 'y':
-        tg_chat_room = config_data['telegram']
-        tg = Telegram(tg_chat_room)
-        print(f'[{title}][SETUP] Telegram chat id - "{tg_chat_room}:{tg.telegram_token}" is ready.')
-
+    (config_data)
 
 def setup_scheduler(input_main, input_config):
     """Set up the scheduler with the loaded configuration."""
@@ -74,7 +69,11 @@ def main():
         telegram_message = f'[{title}][template_main] Sending Telegram: {return_message}'
         print(telegram_message)
         telegram_instance = Telegram(telegram_chatroom)
-        telegram_instance.send_message(telegram_message)
+
+        if telegram_instance.send_message(telegram_message):
+            print(f'[{title}][main] Telegram: message sent successfully.')
+        else:
+            print(f'[{title}][main] Telegram: Failed to send message.')
     else:
         print(f'[{title}][template_main] Message: {return_message}')
 

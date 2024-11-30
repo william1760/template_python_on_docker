@@ -1,6 +1,6 @@
 import sys
 import logging
-
+from Telegram import Telegram
 
 class InputHelper:
     @staticmethod
@@ -23,6 +23,9 @@ class InputHelper:
             input_notification = input("Notification? (y/n): ").strip()
             if input_notification.lower() == "y":
                 input_telegram = input("Enter the Telegram chatroom: ").strip()
+
+                tg = Telegram(input_telegram)
+                print(f'[InputHelper.get_user_input] Telegram chat id - "{input_telegram}:{tg.telegram_token}" is ready.')
             else:
                 input_telegram = ""
 

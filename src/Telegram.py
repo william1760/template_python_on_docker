@@ -136,9 +136,10 @@ class Telegram:
             }
             response = requests.post(url, json=data, headers=headers)
             response.raise_for_status()
-            logging.info("Message sent successfully!")
+            return True
         except requests.exceptions.RequestException as e:
-            logging.error(f"Error sending message: {e}")
+            logging.error(f"[Telegram][send_message] Error sending message: {e}")
+            return False
 
 
 if __name__ == '__main__':
@@ -161,4 +162,7 @@ if __name__ == '__main__':
         print(f'[Telegram.py] chat_room= "{default_chat}", chat_id= "{telegram_instance.telegram_token}", '
               f'chat_message= "{args.chat_messages}"')
         telegram_message = args.chat_messages
-        telegram_instance.send_message(telegram_message)
+        if telegram_instance.send_message(telegram_message):
+            print(r'[Telegram.py] Message sent successfully.')
+        else:
+            print(r'[Telegram.py] Failed to send message.')
