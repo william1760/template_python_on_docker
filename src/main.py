@@ -30,32 +30,6 @@ def setup_config():
         print(f'[{title}][SETUP] Telegram chat id - "{tg_chat_room}:{tg.telegram_token}" is ready.')
 
 
-def load_config():
-    """Load configuration and log the result."""
-    global config_path
-    file_config = ConfigManager.load_config(config_path)
-
-    if file_config:
-        load_title = file_config["title"]
-        load_log_file_name = file_config["log_file_name"]
-        load_interval = file_config["interval"]
-        load_schedule = file_config["schedule"]
-        load_telegram_chatroom = file_config["telegram"]
-        load_schedule_time = TimeToolkit.parse_time_string(load_schedule)
-        config_message = (f"Loaded configuration: "
-                          f"title={load_title}, "
-                          f"log_file_name={load_log_file_name}, "
-                          f"interval={load_interval}, "
-                          f"interval={load_schedule}, "
-                          f"schedule={load_schedule_time}, "
-                          f"telegram={load_telegram_chatroom}")
-        logging.debug(config_message)
-        print(config_message)
-        return file_config
-    else:
-        raise FileNotFoundError("Configuration not found!")
-
-
 def setup_scheduler(input_template_main, input_config):
     """Set up the scheduler with the loaded configuration."""
     scheduler = BlockingScheduler(timezone=str(get_localzone()))
@@ -85,7 +59,7 @@ def setup_scheduler(input_template_main, input_config):
 
 
 def template_function():
-    template_function_message = f'called <template_function>.'
+    template_function_message = f'[template_function] called <template_function>.'
     print(template_function_message)
     logging.info(template_function_message)
 
@@ -97,12 +71,12 @@ def template_main():
     return_message = template_function()
 
     if notification.lower() == 'y':
-        telegram_message = f'[{title}] Sending Telegram: {return_message}'
+        telegram_message = f'[{title}][template_main] Sending Telegram: {return_message}'
         print(telegram_message)
         telegram_instance = Telegram(telegram_chatroom)
         telegram_instance.send_message(telegram_message)
     else:
-        print(f'[{title}] Message: {return_message}')
+        print(f'[{title}][template_main] Message: {return_message}')
 
 
 if __name__ == "__main__":
