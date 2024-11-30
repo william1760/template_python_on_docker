@@ -1,7 +1,6 @@
 
 import json
 import os
-import logging
 
 
 class ConfigManager:
@@ -12,7 +11,6 @@ class ConfigManager:
         # Check if the file exists
         if not os.path.exists(import_file_path):
             load_config_message = f"Configuration file '{import_file_path}' is missing."
-            logging.warning(load_config_message)
             print(f'[load_config] {load_config_message}')
             return None
 
@@ -21,19 +19,14 @@ class ConfigManager:
             with open(import_file_path, 'r') as file:
                 config_json = json.load(file)
 
-            # Validate the contents
-            if "interval" not in config_json or "schedule" not in config_json or "telegram" not in config_json:
-                load_config_message = "Configuration file is missing 'schedule' or 'interval' or 'telegram' keys."
-                logging.warning(load_config_message)
-                print(f'[load_config] {load_config_message}')
-                return None
+            load_config_msg = f'[ConfigManager.load_config] Loaded Config: {config_json}'
+            print(load_config_msg)
 
             # Return the valid config data
             return config_json
 
         except json.JSONDecodeError:
             load_config_message = "Configuration file contains invalid JSON."
-            logging.warning(load_config_message)
             print(f'[load_config] {load_config_message}')
             return None
 
@@ -58,9 +51,8 @@ class ConfigManager:
                 json.dump(merged_data, file, indent=4)
 
             result_save_message = f"Configuration updated and saved to {import_file_path}"
-            logging.info(result_save_message)
+            # logging.info(result_save_message)
             print(result_save_message)
         except (IOError, json.JSONDecodeError) as e:
             result_save_message = f"Error saving configuration: {e}"
-            logging.error(result_save_message)
             print(result_save_message)

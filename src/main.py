@@ -30,7 +30,7 @@ def setup_config():
         print(f'[{title}][SETUP] Telegram chat id - "{tg_chat_room}:{tg.telegram_token}" is ready.')
 
 
-def setup_scheduler(input_template_main, input_config):
+def setup_scheduler(input_main, input_config):
     """Set up the scheduler with the loaded configuration."""
     scheduler = BlockingScheduler(timezone=str(get_localzone()))
     interval = input_config["interval"]
@@ -38,11 +38,11 @@ def setup_scheduler(input_template_main, input_config):
     schedule_time = TimeToolkit.parse_time_string(input_config["schedule"])
 
     if interval == 0:
-        scheduler.add_job(input_template_main, 'cron', hour=schedule_time[0], minute=schedule_time[1],
+        scheduler.add_job(input_main, 'cron', hour=schedule_time[0], minute=schedule_time[1],
                           misfire_grace_time=misfire_grace_time)
         scheduled_job_msg = f"Scheduled jobs: {input_config['schedule']}"
     else:
-        scheduler.add_job(input_template_main, 'interval', minutes=int(interval),
+        scheduler.add_job(input_main, 'interval', minutes=int(interval),
                           misfire_grace_time=misfire_grace_time)
         scheduled_job_msg = f"Scheduled jobs: interval {interval} minute(s)."
 
@@ -66,7 +66,7 @@ def template_function():
     return template_function_message
 
 
-def template_main():
+def main():
     global title, telegram_chatroom, notification
     return_message = template_function()
 
@@ -88,10 +88,11 @@ if __name__ == "__main__":
         notification = config["notification"]
         telegram_chatroom = config["telegram"]
 
-        ConsoleTitle.show_title(title, True, 50)
-        Log4Me.init_logging()
+        ConsoleTitle.show_title(title, False, 60)
+        Log4Me.init_logging(log_file_name)
+        logging.info(f'[Main] Load Config: {config}')
 
-        parser = argparse.ArgumentParser(description=f"{template_main}")
+        parser = argparse.ArgumentParser(description=f"{title}")
         parser.add_argument('--setup', action="store_true")
         parser.add_argument('--run', action="store_true")
 
@@ -100,10 +101,10 @@ if __name__ == "__main__":
         if args.setup:
             setup_config()
         elif args.run:
-            template_main()
+            main()
         else:
             try:
-                main_scheduler = setup_scheduler(template_main, config)
+                main_scheduler = setup_scheduler(main, config)
                 main_scheduler.start()
             except KeyboardInterrupt:
                 keyboard_interrupt_message = "Ctrl-C pressed. Stopping the scheduler..."
