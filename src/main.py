@@ -23,7 +23,8 @@ def setup_config():
 
     config_data = InputHelper.get_user_input()
     ConfigManager.save_config(config_data, config_path)
-    (config_data)
+    print(f'Config: {config_data}')
+
 
 def setup_scheduler(input_main, input_config):
     """Set up the scheduler with the loaded configuration."""
