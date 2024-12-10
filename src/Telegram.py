@@ -90,6 +90,27 @@ class Telegram:
         return largest_chat_id
 
     @staticmethod
+    def validate_message(message):
+        """Validate and sanitize the message content."""
+        # Check for empty or None messages
+        if not message:
+            logging.error("[Telegram][__validate_message] Message is empty or None.")
+            return None
+
+        # Trim the message if it exceeds Telegram's limit
+        max_length = 4096
+        if len(message) > max_length:
+            logging.warning(
+                f"[Telegram][__validate_message] Message exceeds {max_length} characters. Trimming to allowed limit."
+            )
+            return message[:max_length]
+
+        # Additional content sanitization (e.g., stripping unwanted characters)
+        sanitized_message = message.strip()
+        logging.debug(f'[Telegram][__validate_message] Message: "{sanitized_message}"')
+        return sanitized_message
+
+    @staticmethod
     def display_token(telegram_chat: str):
         """
         Display the existence and value of the Telegram token for the specified chat.
@@ -123,18 +144,23 @@ class Telegram:
         Returns:
             None
         """
+        validated_message = self.validate_message(message)
+        if not validated_message:
+            logging.error("[Telegram][send_message] Message validation failed. No message sent.")
+            return
+
         bot_token = self.telegram_bot
         try:
             url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
             data = {
                 'chat_id': self.telegram_token,
-                'text': message
+                'text': validated_message
             }
             headers = {
                 'Authorization': f'Bearer {bot_token}',
                 'Content-Type': 'application/json'
             }
-            response = requests.post(url, json=data, headers=headers)
+            response = requests.post(url, json=data, headers=headers, timeout=10)
             response.raise_for_status()
             return True
         except requests.exceptions.RequestException as e:
@@ -161,7 +187,9 @@ if __name__ == '__main__':
     else:
         print(f'[Telegram.py] chat_room= "{default_chat}", chat_id= "{telegram_instance.telegram_token}", '
               f'chat_message= "{args.chat_messages}"')
+
         telegram_message = args.chat_messages
+
         if telegram_instance.send_message(telegram_message):
             print(r'[Telegram.py] Message sent successfully.')
         else:
