@@ -123,7 +123,27 @@ class Log4Me:
         except Exception as e:
             raise Exception(e)
 
+    @staticmethod
+    def log_and_print(msg, level="info"):
+        """
+        Log and print a message.
+        :param msg: Message to log and print.
+        :param level: Logging level (default: "info").
+        """
+        try:
+            # Dynamically call the logging method based on the level
+            getattr(logging, level.lower())(msg)
+            print(msg)
+        except AttributeError:
+            logging.error(f"Invalid logging level: {level}. Message: {msg}")
+
 
 if __name__ == "__main__":
     # Initialize logging configuration
     Log4Me.init_logging()
+
+    Log4Me.log_and_print("This is an info message.", "info")
+    Log4Me.log_and_print("This is an error message.", "error")
+    Log4Me.log_and_print("This is a debug message.", "debug")
+    Log4Me.log_and_print("This is a warning message.", "warning")
+    Log4Me.log_and_print("This will log an error about the invalid level.", "invalid")

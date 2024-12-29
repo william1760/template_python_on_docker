@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 
@@ -19,8 +20,9 @@ class TimeToolkit:
         try:
             time_obj = datetime.strptime(time_str, '%H:%M')
             return [time_obj.hour, time_obj.minute]
-        except ValueError:
-            raise InvalidTimeInputError(f'Invalid input: {time_str}')
+        except ValueError as e:
+            logging.error(f"[TimeToolkit] Error parsing time string '{time_str}': {e}")
+            return None
 
 
 if __name__ == '__main__':

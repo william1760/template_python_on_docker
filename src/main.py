@@ -1,21 +1,18 @@
-import argparse
+import datetime
+import os
+import sys
 import logging
-from io import StringIO
-from contextlib import redirect_stdout
-from tzlocal import get_localzone
-from apscheduler.schedulers.blocking import BlockingScheduler
+import argparse
 from Log4Me import Log4Me
 from Telegram import Telegram
 from ConsoleTitle import ConsoleTitle
-from TimeToolkit import TimeToolkit
 from config_manager import ConfigManager
 from input_helper import InputHelper
+from Scheduler import Scheduler
 
 # Configuration variables
 config_path = "config.json"
-title = ""
-notification = ""
-telegram_chatroom = ""
+config = None
 
 
 def setup_config():
@@ -26,75 +23,44 @@ def setup_config():
     print(f'Config: {config_data}')
 
 
-def setup_scheduler(input_main, input_config):
-    """Set up the scheduler with the loaded configuration."""
-    scheduler = BlockingScheduler(timezone=str(get_localzone()))
-    interval = input_config["interval"]
-    misfire_grace_time = input_config["schedule_misfire_grace_time"]
-    schedule_time = TimeToolkit.parse_time_string(input_config["schedule"])
+def main(trigger_notification: bool = False):
+    global config
+    main_title = config["title"]
+    notification = config["notification"]
+    telegram_chatroom = config["telegram"]
 
-    if interval == 0:
-        scheduler.add_job(input_main, 'cron', hour=schedule_time[0], minute=schedule_time[1],
-                          misfire_grace_time=misfire_grace_time)
-        scheduled_job_msg = f"Scheduled jobs: {input_config['schedule']}"
-    else:
-        scheduler.add_job(input_main, 'interval', minutes=int(interval),
-                          misfire_grace_time=misfire_grace_time)
-        scheduled_job_msg = f"Scheduled jobs: interval {interval} minute(s)."
+    result_message = f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} Function "main" called'
 
-    print(scheduled_job_msg)
-    logging.info(scheduled_job_msg)
-
-    with redirect_stdout(StringIO()) as buffer:
-        scheduler.print_jobs()
-    scheduler_msg = buffer.getvalue().rstrip('\n')
-    logging.info(scheduler_msg)
-    print(scheduler_msg)
-
-    return scheduler
-
-
-def template_function():
-    template_function_message = f'[template_function] called <template_function>.'
-    print(template_function_message)
-    logging.info(template_function_message)
-
-    return template_function_message
-
-
-def main():
-    global title, telegram_chatroom, notification
-    return_message = template_function()
-
-    if notification.lower() == 'y':
-        telegram_message = f'[{title}][template_main] Sending Telegram: {return_message}'
-        print(telegram_message)
+    if notification.lower() == 'y' or notification.lower() == 'a' or trigger_notification:
+        telegram_message = f"[{main_title}] {result_message}"
+        Log4Me.log_and_print(f'[main] telegram_message: {telegram_message}', "debug")
         telegram_instance = Telegram(telegram_chatroom)
 
         if telegram_instance.send_message(telegram_message):
-            print(f'[{title}][main] Telegram: message sent successfully.')
+            Log4Me.log_and_print(f'[main] Telegram: message sent successfully.')
         else:
-            print(f'[{title}][main] Telegram: Failed to send message.')
+            Log4Me.log_and_print(f'[main] Telegram: Failed to send message.')
     else:
-        print(f'[{title}][template_main] Message: {return_message}')
+        print(f'[{title}][template_main] Message: {result_message}')
 
 
 if __name__ == "__main__":
     try:
-        config = ConfigManager.load_config(config_path)
+        if not os.path.exists(config_path):
+            print(f"Error: The required file '{config_path}' does not exist.")
+            sys.exit(1)  # Exit the script with a non-zero exit code
 
-        title = config["title"]
+        config = ConfigManager.load_config(config_path)
         log_file_name = config["log_file_name"]
-        notification = config["notification"]
-        telegram_chatroom = config["telegram"]
+        title = config["title"]
 
         ConsoleTitle.show_title(title, False, 60)
-        Log4Me.init_logging(log_file_name)
+        Log4Me.init_logging(log_name=log_file_name)
         logging.info(f'[Main] Load Config: {config}')
 
         parser = argparse.ArgumentParser(description=f"{title}")
-        parser.add_argument('--setup', action="store_true")
-        parser.add_argument('--run', action="store_true")
+        parser.add_argument('--setup', action="store_true", help="Setup configuration")
+        parser.add_argument('--run', action="store_true", help="Execute now without schedule")
 
         args = parser.parse_args()
 
@@ -104,12 +70,28 @@ if __name__ == "__main__":
             main()
         else:
             try:
-                main_scheduler = setup_scheduler(main, config)
-                main_scheduler.start()
+                job_schedule = Scheduler()
+
+                if int(config["interval"]) > 0:
+                    job_schedule.add(main,
+                                     schedule_type='interval',
+                                     interval=int(config["interval"]),
+                                     misfire_grace_time=config["schedule_misfire_grace_time"])
+
+                if config["schedule"]:
+                    cp_notification = True if config["checkpoint_notification"].lower == 'y' else False
+                    job_schedule.add(main,
+                                     schedule_type='cron',
+                                     schedule_time=config["schedule"],
+                                     checkpoint_notification=cp_notification,
+                                     misfire_grace_time=int(config["schedule_misfire_grace_time"]))
+
+                job_schedule.show_jobs()
+                job_schedule.start()
+
             except KeyboardInterrupt:
                 keyboard_interrupt_message = "Ctrl-C pressed. Stopping the scheduler..."
-                print(keyboard_interrupt_message)
-                logging.warning(keyboard_interrupt_message)
-    except FileNotFoundError as e:
+                Log4Me.log_and_print(keyboard_interrupt_message, "error")
+                sys.exit(1)  # Exit the program gracefully
+    except Exception as e:
         print(str(e))
-        logging.error(str(e))

@@ -19,8 +19,7 @@ class ConfigManager:
             with open(import_file_path, 'r') as file:
                 config_json = json.load(file)
 
-            load_config_msg = f'[ConfigManager.load_config] Loaded Config: {config_json}'
-            print(load_config_msg)
+            print("[ConfigManager.load_config] Loaded Config loaded.")
 
             # Return the valid config data
             return config_json
@@ -51,8 +50,8 @@ class ConfigManager:
                 json.dump(merged_data, file, indent=4)
 
             result_save_message = f"Configuration updated and saved to {import_file_path}"
-            # logging.info(result_save_message)
             print(result_save_message)
+
         except (IOError, json.JSONDecodeError) as e:
             result_save_message = f"Error saving configuration: {e}"
             print(result_save_message)

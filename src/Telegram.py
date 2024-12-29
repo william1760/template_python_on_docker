@@ -176,9 +176,12 @@ if __name__ == '__main__':
     parser.add_argument("--display_token", action="store_true", help="Generate a new Telegram Bot and Chat Id", )
     parser.add_argument("--chat_name", default=default_chat, help="Name of the Telegram chat room to use", )
     parser.add_argument("--chat_messages", default=default_message, help="Name of the Telegram chat room to use", )
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO)  # Configure logging level
+    # Configure logging
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
+                        format="%(asctime)s - %(levelname)s - %(message)s")
 
     telegram_instance = Telegram(args.chat_name)
 

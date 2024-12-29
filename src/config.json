@@ -1,9 +1,10 @@
 {
     "title": "template_python_on_docker",
     "log_file_name": "template_python_on_docker",
-    "interval": 0,
+    "interval": 1,
     "schedule": "10:30",
     "schedule_misfire_grace_time": 300,
     "notification": "y",
+    "checkpoint_notification": "y",
     "telegram": "TG_TESTING"
 }
