@@ -28,6 +28,7 @@ RUN pip install --user apscheduler
 RUN pip install --user requests
 RUN pip install --user tzlocal
 RUN pip install --user dnspython
+RUN pip install --user validators
 
 # Set the working directory
 WORKDIR /app/$FOLDER_NAME/
