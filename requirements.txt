@@ -1,0 +1,6 @@
+cryptography
+apscheduler
+requests
+tzlocal
+dnspython
+validators
