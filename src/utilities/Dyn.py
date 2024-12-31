@@ -7,8 +7,8 @@ import time
 import validators
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
-from config_manager import ConfigManager
-from KeyManager import KeyManager
+from .config_manager import ConfigManager
+from .KeyManager import KeyManager
 
 
 class Dyn_Updater:
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Configure logging
-    config = ConfigManager.load_config('config.json')
+    config = ConfigManager.load_config('../config.json')
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s - %(levelname)s - %(message)s")
 

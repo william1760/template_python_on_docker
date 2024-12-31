@@ -1,6 +1,6 @@
 import sys
 import logging
-from Telegram import Telegram
+from .Telegram import Telegram
 
 
 class InputHelper:

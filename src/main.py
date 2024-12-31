@@ -3,12 +3,7 @@ import os
 import sys
 import logging
 import argparse
-from Log4Me import Log4Me
-from Telegram import Telegram
-from ConsoleTitle import ConsoleTitle
-from config_manager import ConfigManager
-from input_helper import InputHelper
-from Scheduler import Scheduler
+from utilities import Log4Me, Telegram, ConsoleTitle, ConfigManager, InputHelper, Scheduler
 
 # Configuration variables
 config_path = "config.json"

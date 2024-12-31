@@ -2,7 +2,7 @@ import requests
 import logging
 import argparse
 import datetime
-from KeyManager import KeyManager
+from .KeyManager import KeyManager
 
 
 class Telegram:

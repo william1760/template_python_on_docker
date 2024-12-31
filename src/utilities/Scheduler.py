@@ -4,7 +4,7 @@ from io import StringIO
 from contextlib import redirect_stdout
 from tzlocal import get_localzone
 from apscheduler.schedulers.blocking import BlockingScheduler
-from TimeToolkit import TimeToolkit
+from .TimeToolkit import TimeToolkit
 
 
 class Scheduler:
