@@ -21,6 +21,8 @@ class KeyManager:
           If None, a random UUID-based password will be generated.
         """
         data_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '../DATA'))
+        os.makedirs(data_folder, exist_ok=True)
+
         self.token_file_path = token_file_path or os.path.join(data_folder, 'Token.key')
         self.password = password or str(uuid.uuid1()).encode('utf-8')
 
