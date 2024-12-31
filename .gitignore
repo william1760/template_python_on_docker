@@ -162,5 +162,5 @@ cython_debug/
 .idea/
 
 /src/LOGS/*.log
-src/DATA/
-/src/Token.key
+/src/DATA/*.*
+/src/DATA/Token.key

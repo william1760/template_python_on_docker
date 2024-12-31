@@ -20,7 +20,8 @@ class KeyManager:
         - password: The password used to generate the encryption key.
           If None, a random UUID-based password will be generated.
         """
-        self.token_file_path = token_file_path or os.path.join(os.path.dirname(__file__), 'Token.key')
+        data_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '../DATA'))
+        self.token_file_path = token_file_path or os.path.join(data_folder, 'Token.key')
         self.password = password or str(uuid.uuid1()).encode('utf-8')
 
     @staticmethod
