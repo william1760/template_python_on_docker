@@ -19,13 +19,18 @@ RUN adduser -D worker && \
 # Switch to non-root user
 USER worker
 
+# Copy the requirements file into the Docker image
+COPY ./requirements.txt /app/$FOLDER_NAME/
+
 # Install Python dependencies
 RUN python -m pip install --upgrade pip --user && \
-    pip install --user cryptography apscheduler requests tzlocal dnspython validators
+    pip install --user -r /app/$FOLDER_NAME/requirements.txt
 
 # Copy source files after dependencies to leverage Docker cache
 COPY ./src/*.py /app/$FOLDER_NAME/
+COPY ./src/utilities /app/$FOLDER_NAME/utilities/
 COPY ./src/config.json /app/$FOLDER_NAME/
+
 
 #Ensure write access for the non-root user
 USER root

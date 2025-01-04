@@ -8,3 +8,4 @@ from .KeyManager import KeyManager
 from .Log4Me import Log4Me
 from .Scheduler import Scheduler
 from .Telegram import Telegram
+from .Calendarific import Calendarific

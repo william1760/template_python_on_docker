@@ -4,3 +4,7 @@ requests
 tzlocal
 dnspython
 validators
+argparse
+certifi
+tabulate
+docker
