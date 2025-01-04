@@ -261,15 +261,18 @@ class Calendarific:
         word_country = "Countries" if len(result_array) > 1 else "Country"
         unique_country_ids = {info["Country ID"] for info in result_array}
         country_ids_string = ", ".join(unique_country_ids)
-        logging.info(f"[show_holiday_result] Found {len(result_array)} holidays. {word_country}: {country_ids_string}")
 
+        logging.info(f"[show_holiday_result] Found {len(result_array)} holidays. {word_country}: {country_ids_string}")
         logging.info(f'[show_holiday_result] Summary table:\n\n{table}')
 
         if text_mode:
             summary_result = f'Country: {country_ids_string} / Year: {target_year}'
+            print(summary_result)
             summary_result += "\n\n" + self.format_holiday_text(result_array)
+            print(table + '\n')
         else:
-            summary_result = f'{target_date.strftime("%Y-%m-%d")} - {word_country} with Holidays: : {country_ids_string}'
+            summary_result = f'{target_date.strftime("%Y-%m-%d")} - {word_country} with Holidays : {country_ids_string}'
+            print(summary_result + '\n\n' + table + '\n')
 
         return summary_result
 
