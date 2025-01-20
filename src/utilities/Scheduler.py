@@ -1,32 +1,56 @@
 import sys
 import logging
-from io import StringIO
-from contextlib import redirect_stdout
+import time
 from tzlocal import get_localzone
-from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR, EVENT_JOB_MISSED
 from .TimeToolkit import TimeToolkit
 
 
 class Scheduler:
     def __init__(self):
-        self.scheduler = BlockingScheduler(timezone=str(get_localzone()))
+        self.scheduler = BackgroundScheduler(
+            timezone=str(get_localzone()),
+            job_defaults={"coalesce": False, "max_instances": 1}
+        )
+        self.scheduler.add_listener(self.__job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR | EVENT_JOB_MISSED)
+
+    def __job_listener(self, event):
+        """Handle job events and log details."""
+        job = self.scheduler.get_job(event.job_id)  # Use self.scheduler to get the job
+        if not job:
+            logging.error(f"[Scheduler.job_listener] Job not found for ID: {event.job_id}")
+            return
+
+        # Centralized details
+        trigger_details = str(job.trigger)
+        next_run_time = getattr(job, 'next_run_time', None)
+        next_run_time_str = next_run_time.strftime('%Y-%m-%d %H:%M:%S') if next_run_time else "Not Scheduled"
+        event_job_details = f"ID={event.job_id}, Trigger={trigger_details}, Next Run={next_run_time_str}"
+
+        if event.exception:
+            logging.error(f"[Scheduler.job_listener] Job failed: {event_job_details}")
+        elif event.code == EVENT_JOB_EXECUTED:
+            event_job_executed_message = f"[Scheduler.job_listener] Job executed: {event_job_details}"
+            logging.info(event_job_executed_message)
+            print(event_job_executed_message)
+        elif event.code == EVENT_JOB_MISSED:
+            logging.warning(f"[Scheduler.job_listener] Job missed: {event_job_details}")
 
     def show_jobs(self):
-        print("show_jobs")
-
         """Display all scheduled jobs."""
-        if not self.scheduler.get_jobs():
+        jobs = self.scheduler.get_jobs()
+        if not jobs:
             print("[Scheduler.show_jobs] No jobs currently scheduled.")
             logging.info("[Scheduler.show_jobs] No jobs currently scheduled.")
         else:
-            with StringIO() as buffer:
-                with redirect_stdout(buffer):
-                    self.scheduler.print_jobs()  # Print jobs to buffer
-                jobs_output = buffer.getvalue().strip()
-
-            print("[Scheduler.show_jobs] Current jobs:")
-            print(jobs_output)
-            logging.info(f"[Scheduler.show_jobs] Current jobs:\n{jobs_output}")
+            for job in jobs:
+                next_run = getattr(job, 'next_run_time', None)
+                next_run_str = next_run.strftime('%Y-%m-%d %H:%M:%S') if next_run else "Not Scheduled"
+                print(f"[Scheduler.show_jobs] Job ID: {job.id}, Trigger: {job.trigger}, Next Run Time: {next_run_str}")
+                logging.info(
+                    f"[Scheduler.show_jobs] Job ID: {job.id}, Trigger: {job.trigger}, Next Run Time: {next_run_str}"
+                )
 
     def add(self,
             input_main,
@@ -83,16 +107,21 @@ class Scheduler:
             print("[Scheduler.start] Starting the scheduler...")
             logging.info("[Scheduler.start] Scheduler is starting...")
             self.scheduler.start()
-        except KeyboardInterrupt:
-            print("[Scheduler.start] Scheduler stopped by user (Ctrl+C).")
-            logging.warning("Scheduler stopped by user (Ctrl+C).")
         except Exception as e:
             print(f"[Scheduler.start] Scheduler stopped due to an unexpected error: {e}")
-            logging.error(f"Scheduler stopped due to an unexpected error: {e}")
+            logging.error(f"[Scheduler.start] Scheduler stopped due to an unexpected error: {e}")
             sys.exit(1)  # Exit with a failure code for unexpected errors
+
+    def shutdown(self):
+        print("[Scheduler.shutdown] Shutting down the scheduler...")
+        logging.info("[Scheduler.shutdown] Scheduler is Shutting down...")
+        self.scheduler.shutdown()
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,  # Set default logging level to INFO
+        format="%(asctime)s - %(levelname)s - %(message)s")
     Task = Scheduler()
 
     def demo():
@@ -109,9 +138,21 @@ if __name__ == "__main__":
     Task.add(
         demo,
         schedule_type='cron',
-        schedule_time="08:00",
+        schedule_time="13:16",
         misfire_grace_time=300
     )
 
     Task.show_jobs()
     Task.start()
+
+    try:
+        # Keep the script running
+        logging.info("Scheduler is running. Press Ctrl+C to exit.")
+        while True:
+            time.sleep(1)  # Sleep to reduce CPU usage
+    except (KeyboardInterrupt, SystemExit):
+        # Graceful shutdown on user interrupt
+        logging.info("Stopping the scheduler...")
+        Task.shutdown()
+        logging.info("Scheduler stopped.")
+

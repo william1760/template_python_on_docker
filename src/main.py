@@ -3,6 +3,7 @@ import os
 import sys
 import logging
 import argparse
+import time
 from utilities import Log4Me, Telegram, ConsoleTitle, ConfigManager, InputHelper, Scheduler
 
 # Configuration variables
@@ -64,29 +65,32 @@ if __name__ == "__main__":
         elif args.run:
             main()
         else:
+            job_schedule = Scheduler()
+
+            if int(config["interval"]) > 0:
+                job_schedule.add(main,
+                                 schedule_type='interval',
+                                 interval=int(config["interval"]),
+                                 misfire_grace_time=config["schedule_misfire_grace_time"])
+
+            if config["schedule"]:
+                cp_notification = config["checkpoint_notification"].lower() == "y"
+                job_schedule.add(main,
+                                 schedule_type='cron',
+                                 schedule_time=config["schedule"],
+                                 checkpoint_notification=cp_notification,
+                                 misfire_grace_time=int(config["schedule_misfire_grace_time"]))
+
+            job_schedule.show_jobs()
+            job_schedule.start()
+
             try:
-                job_schedule = Scheduler()
-
-                if int(config["interval"]) > 0:
-                    job_schedule.add(main,
-                                     schedule_type='interval',
-                                     interval=int(config["interval"]),
-                                     misfire_grace_time=config["schedule_misfire_grace_time"])
-
-                if config["schedule"]:
-                    cp_notification = True if config["checkpoint_notification"].lower == 'y' else False
-                    job_schedule.add(main,
-                                     schedule_type='cron',
-                                     schedule_time=config["schedule"],
-                                     checkpoint_notification=cp_notification,
-                                     misfire_grace_time=int(config["schedule_misfire_grace_time"]))
-
-                job_schedule.show_jobs()
-                job_schedule.start()
-
+                while True:
+                    time.sleep(1)  # Sleep to reduce CPU usage
             except KeyboardInterrupt:
                 keyboard_interrupt_message = "Ctrl-C pressed. Stopping the scheduler..."
                 Log4Me.log_and_print(keyboard_interrupt_message, "error")
+                job_schedule.shutdown()
                 sys.exit(1)  # Exit the program gracefully
     except Exception as e:
         print(str(e))
