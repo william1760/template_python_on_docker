@@ -4,7 +4,7 @@
     "interval": 1,
     "schedule": "22:40",
     "schedule_misfire_grace_time": 300,
-    "notification": "n",
+    "notification": "y",
     "checkpoint_notification": "y",
     "telegram": "TG_TESTING"
 }

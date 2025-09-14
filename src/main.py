@@ -21,9 +21,9 @@ def setup_config():
 
 def main(trigger_notification: bool = False):
     global config
-    main_title = config["title"]
-    notification = config["notification"]
-    telegram_chatroom = config["telegram"]
+    main_title = ConfigManager.get(config, "title")
+    notification = ConfigManager.get(config, "notification")
+    telegram_chatroom = ConfigManager.get(config, "telegram")
 
     result_message = f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} Function "main" called'
 
@@ -47,8 +47,8 @@ if __name__ == "__main__":
             sys.exit(1)  # Exit the script with a non-zero exit code
 
         config = ConfigManager.load_config(config_path)
-        log_file_name = config["log_file_name"]
-        title = config["title"]
+        log_file_name = ConfigManager.get(config, "log_file_name")
+        title = ConfigManager.get(config, "title")
 
         ConsoleTitle.show_title(title, False, 60)
         Log4Me.init_logging(log_name=log_file_name)
@@ -67,19 +67,19 @@ if __name__ == "__main__":
         else:
             job_schedule = Scheduler()
 
-            if int(config["interval"]) > 0:
+            if int(ConfigManager.get(config, "interval", 0)) > 0:
                 job_schedule.add(main,
                                  schedule_type='interval',
-                                 interval=int(config["interval"]),
-                                 misfire_grace_time=config["schedule_misfire_grace_time"])
+                                 interval=int(ConfigManager.get(config, "interval")),
+                                 misfire_grace_time=ConfigManager.get(config, "schedule_misfire_grace_time"))
 
-            if config["schedule"]:
-                cp_notification = config["checkpoint_notification"].lower() == "y"
+            if ConfigManager.get(config, "schedule"):
+                cp_notification = ConfigManager.get(config, "checkpoint_notification", "n").lower() == "y"
                 job_schedule.add(main,
                                  schedule_type='cron',
-                                 schedule_time=config["schedule"],
+                                 schedule_time=ConfigManager.get(config, "schedule"),
                                  checkpoint_notification=cp_notification,
-                                 misfire_grace_time=int(config["schedule_misfire_grace_time"]))
+                                 misfire_grace_time=int(ConfigManager.get(config, "schedule_misfire_grace_time", 30)))
 
             job_schedule.show_jobs()
             job_schedule.start()

@@ -5,6 +5,14 @@ import os
 
 class ConfigManager:
     @staticmethod
+    def get(config_dict, key, default=None):
+        if key in config_dict:
+            return config_dict[key]
+        else:
+            print(f"[ConfigManager.get] ⚠️ Missing key: '{key}', returning default: {default}")
+            return default
+
+    @staticmethod
     def load_config(file_path):
         import_file_path = os.path.join(os.getcwd(), file_path)
 
