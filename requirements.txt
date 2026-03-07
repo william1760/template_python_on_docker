@@ -8,3 +8,4 @@ argparse
 certifi
 tabulate
 docker
+pytest

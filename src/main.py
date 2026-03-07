@@ -37,7 +37,7 @@ def main(trigger_notification: bool = False):
         else:
             Log4Me.log_and_print(f'[main] Telegram: Failed to send message.')
     else:
-        print(f'[{title}][template_main] Message: {result_message}')
+        print(f'[{main_title}][template_main] Message: {result_message}')
 
 
 if __name__ == "__main__":
