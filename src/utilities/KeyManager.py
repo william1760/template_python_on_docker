@@ -1,10 +1,9 @@
 import base64
 import json
 import os
-import uuid
 import logging
 from getpass import getpass
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
@@ -14,178 +13,201 @@ class KeyManager:
         """
         Initialize the KeyManager object.
 
+        Master password resolution order:
+          1. `password` parameter (useful for testing)
+          2. KEYMANAGER_PASSWORD environment variable (headless Docker)
+          3. Interactive prompt via getpass (--setup stage)
+
         Parameters:
-        - file_path: The file path where the encrypted key data will be stored.
-          If None, the default file path is used.
-        - password: The password used to generate the encryption key.
-          If None, a random UUID-based password will be generated.
+        - token_file_path: Path to the encrypted key store file.
+          Defaults to DATA/Token.key relative to this file.
+        - password: Override master password (bytes or str).
+          If None, resolved from env var or interactive prompt.
         """
         data_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '../DATA'))
         os.makedirs(data_folder, exist_ok=True)
 
         self.token_file_path = token_file_path or os.path.join(data_folder, 'Token.key')
-        self.password = password or str(uuid.uuid1()).encode('utf-8')
+
+        if password is not None:
+            self.password = password if isinstance(password, bytes) else str(password).encode('utf-8')
+        else:
+            master = os.environ.get('KEYMANAGER_PASSWORD') or self._get_pass('Master password: ')
+            self.password = master.encode('utf-8')
+
+        if os.path.exists(self.token_file_path):
+            self._validate_password()
 
     @staticmethod
     def _get_pass(get_pass_msg="Enter password: "):
         """
         Safely retrieves a password from the user input.
 
-        Args:
-            get_pass_msg (str, optional): The message prompt for getting the password. Defaults to "Enter password: ".
-
         Returns:
             str: The entered password.
-
-        Raises:
-            KeyboardInterrupt: If Ctrl-C is detected, the function prints a message and exits the program.
         """
         try:
-            password = getpass(prompt=get_pass_msg)
-            return password
+            return getpass(prompt=get_pass_msg)
         except KeyboardInterrupt:
             print("\nCtrl-C detected. Exiting...")
             exit()
 
-    def _get_fernet_key(self):
+    def _get_fernet_key(self, salt: bytes) -> bytes:
         """
-        Generate a Fernet key using PBKDF2HMAC.
+        Derive a Fernet key from the master password and a given salt
+        using PBKDF2HMAC. The derived key is never stored — only the
+        salt is stored, allowing the key to be re-derived on demand.
+
+        Parameters:
+            salt: 16 random bytes. Must be the same salt used at encrypt time.
 
         Returns:
-            bytes: The Fernet key.
+            bytes: The derived Fernet key.
         """
-        salt = os.urandom(16)
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt,
             iterations=390000,
         )
-        key = base64.urlsafe_b64encode(kdf.derive(self.password))
-        return key
+        return base64.urlsafe_b64encode(kdf.derive(self.password))
 
-    def _read_keys_from_file(self):
-        """
-        Read the encrypted key data from the JSON file.
+    _VALIDATION_NAME = '__validation__'
+    _VALIDATION_PLAINTEXT = b'__validation__'
 
-        Returns:
-        - keys_data: A dictionary containing the key data.
+    def _create_validation_entry(self) -> dict:
+        salt = os.urandom(16)
+        cipher = Fernet(self._get_fernet_key(salt)).encrypt(self._VALIDATION_PLAINTEXT)
+        return {
+            'Name': self._VALIDATION_NAME,
+            'Key': cipher.decode('utf-8'),
+            'Salt': base64.b64encode(salt).decode('utf-8')
+        }
+
+    def _validate_password(self):
         """
+        Validate the master password against the sentinel entry in Token.key.
+        Raises ValueError if the sentinel is missing or the password is wrong.
+        Only called when Token.key already exists.
+        """
+        keys_data = self._read_keys_from_file(skip_validation=True)
+        sentinel = next((k for k in keys_data if k['Name'] == self._VALIDATION_NAME), None)
+
+        if sentinel is None:
+            raise ValueError(
+                "[KeyManager] Token.key exists but has no validation entry. "
+                "Cannot verify master password — aborting to prevent data corruption."
+            )
+
+        salt = base64.b64decode(sentinel['Salt'])
+        try:
+            Fernet(self._get_fernet_key(salt)).decrypt(sentinel['Key'].encode())
+        except InvalidToken:
+            raise ValueError(
+                "[KeyManager] Wrong master password. Cannot decrypt Token.key."
+            )
+
+    def _read_keys_from_file(self, skip_validation=False) -> list:
         if os.path.exists(self.token_file_path):
-            with open(self.token_file_path, "rb") as token_file:
-                keys = json.load(token_file)
-        else:
-            keys = []
-        return keys
+            with open(self.token_file_path, 'r') as token_file:
+                data = json.load(token_file)
+            if not skip_validation:
+                return [k for k in data if k['Name'] != self._VALIDATION_NAME]
+            return data
+        return []
 
-    def _write_keys_to_file(self, keys):
-        """
-        Write the updated key data to the JSON file.
+    def _write_keys_to_file(self, keys: list):
+        # Always preserve the validation entry at the front
+        existing = self._read_keys_from_file(skip_validation=True)
+        sentinel = next((k for k in existing if k['Name'] == self._VALIDATION_NAME), None)
+        if sentinel is None:
+            sentinel = self._create_validation_entry()
+        payload = [sentinel] + [k for k in keys if k['Name'] != self._VALIDATION_NAME]
+        with open(self.token_file_path, 'w') as token_file:
+            json.dump(payload, token_file, indent=2)
 
-        Parameters:
-        - keys_data: A dictionary containing the updated key data.
+    def get(self, item) -> str | None:
         """
-        with open(self.token_file_path, "w") as token_file:
-            json.dump(keys, token_file)
-
-    def get(self, item):
-        """
-        Find the item in the JSON file and return the decrypted value.
+        Find the item and return the decrypted value.
+        Returns None if item not found or master password is wrong.
 
         Parameters:
             item (str): The item name.
-
-        Returns:
-            str: The decrypted value.
-
         """
         keys_data = self._read_keys_from_file()
         for key_data in keys_data:
             if key_data['Name'] == item:
-                cipher_suit = Fernet(key_data['Token'])
-                cipher = cipher_suit.decrypt(key_data['Key'].encode())
-                return cipher.decode('utf-8')
+                if 'Salt' not in key_data:
+                    logging.error(f"[KeyManager][get] '{item}' uses old format. Re-run --setup to re-add it.")
+                    return None
+                salt = base64.b64decode(key_data['Salt'])
+                cipher_key = self._get_fernet_key(salt)
+                try:
+                    return Fernet(cipher_key).decrypt(key_data['Key'].encode()).decode('utf-8')
+                except InvalidToken:
+                    logging.error(f"[KeyManager][get] Failed to decrypt '{item}'. Wrong master password?")
+                    return None
         return None
 
-    def list(self):
+    def list(self) -> list:
         """
-        List the names of all saved records in the JSON file.
+        List the names of all saved records.
 
         Returns:
             list: The list of item names.
         """
-        keys_data = self._read_keys_from_file()
-        return [key_data['Name'] for key_data in keys_data]
-
-    def _generate_cipher(self):
-        msg = '[KeyManger][_generate_cipher] Enter cipher value: '
-        password = self._get_pass(msg)
-        encoded_password = password.encode()
-        cipher_key = self._get_fernet_key()
-        cipher_suit = Fernet(cipher_key)
-        cipher = cipher_suit.encrypt(encoded_password)
-        return cipher
+        return [key_data['Name'] for key_data in self._read_keys_from_file()]  # sentinel already filtered
 
     def add(self, item, token=None):
         """
-        Add a new item and save the encrypted values.
+        Add a new item and save it encrypted.
+        Returns None without adding if the item already exists.
 
         Parameters:
             item (str): The item name.
-            token (str): Input token key value.
-
-        Returns:
-            bytes: The encrypted key.
+            token (str): Value to store. If None, prompts the user.
         """
         if self.exists(item):
-            logging.error(f"Item '{item}' already exists in the keyring. Use 'update' to update it.")
+            logging.error(f"[KeyManager][add] '{item}' already exists. Use 'update' to update it.")
+            return None
 
-        if token is None:
-            msg = f'[KeyManager][add] Require user input for \'{item}\':'
-            password = self._get_pass(msg)
-        else:
-            password = str(token)
+        secret = str(token) if token is not None else self._get_pass(f"[KeyManager][add] Enter value for '{item}': ")
 
-        encoded_password = password.encode()
-        cipher_key = self._get_fernet_key()
-        cipher_suit = Fernet(cipher_key)
-        cipher = cipher_suit.encrypt(encoded_password)
+        salt = os.urandom(16)
+        cipher = Fernet(self._get_fernet_key(salt)).encrypt(secret.encode())
+
         keys_data = self._read_keys_from_file()
-
-        keys_data.append({'Name': item, 'Key': cipher.decode('utf-8'), 'Token': cipher_key.decode('utf-8')})
+        keys_data.append({
+            'Name': item,
+            'Key': cipher.decode('utf-8'),
+            'Salt': base64.b64encode(salt).decode('utf-8')
+        })
         self._write_keys_to_file(keys_data)
         return cipher
 
     def update(self, item, token=None):
         """
-        Update an existing item and save the encrypted values.
+        Update an existing item with a new encrypted value.
+        Returns None without updating if the item does not exist.
 
         Parameters:
             item (str): The item name.
-            token (str): Input token key value.
-
-        Returns:
-            bytes: The encrypted key.
+            token (str): New value to store. If None, prompts the user.
         """
         if not self.exists(item):
-            logging.error(f"Item '{item}' does not exist in the keyring. Use 'add_key' to add it.")
+            logging.error(f"[KeyManager][update] '{item}' does not exist. Use 'add' to add it.")
+            return None
 
-        if token is None:
-            msg = f'[KeyManager][update] Enter update value for \'{item}\': '
-            password = self._get_pass(msg)
-        else:
-            password = str(token)
+        secret = str(token) if token is not None else self._get_pass(f"[KeyManager][update] Enter new value for '{item}': ")
 
-        encoded_password = password.encode()
-        cipher_key = self._get_fernet_key()
-        cipher_suit = Fernet(cipher_key)
-        cipher = cipher_suit.encrypt(encoded_password)
+        salt = os.urandom(16)
+        cipher = Fernet(self._get_fernet_key(salt)).encrypt(secret.encode())
+
         keys_data = self._read_keys_from_file()
-
         for key_data in keys_data:
             if key_data['Name'] == item:
                 key_data['Key'] = cipher.decode('utf-8')
-                key_data['Token'] = cipher_key.decode('utf-8')
+                key_data['Salt'] = base64.b64encode(salt).decode('utf-8')
                 break
 
         self._write_keys_to_file(keys_data)
@@ -193,61 +215,46 @@ class KeyManager:
 
     def remove(self, item):
         """
-        Remove an item from the JSON file.
+        Remove an item from the key store.
 
         Parameters:
             item (str): The item name.
         """
-        keys_data = self._read_keys_from_file()
-        msg = f'[KeyManager][remove] Removing item: \'{item}\''
-        logging.info(msg)
+        if not self.exists(item):
+            logging.error(f"[KeyManager][remove] '{item}' does not exist.")
+            return
 
-        if self.exists(item):
-            keys_data = [key_data for key_data in keys_data if key_data['Name'] != item]
-        else:
-            logging.error(f"[KeyManager][remove] Item '{item}' does not exist in the keyring.")
-
+        logging.info(f"[KeyManager][remove] Removing '{item}'.")
+        keys_data = [k for k in self._read_keys_from_file() if k['Name'] != item]
         self._write_keys_to_file(keys_data)
 
-    def exists(self, item):
+    def exists(self, item) -> bool:
         """
-        Check if the item exists in the JSON file.
+        Check if an item exists in the key store.
 
         Parameters:
             item (str): The item name.
 
         Returns:
-            int: 1 if the item exists, 0 otherwise.
+            bool: True if the item exists, False otherwise.
         """
-        keys_data = self._read_keys_from_file()
-        return any(key_data['Name'] == item for key_data in keys_data)
+        return any(k['Name'] == item for k in self._read_keys_from_file())
 
 
 if __name__ == "__main__":
     key_manager = KeyManager()
-    print(r'KeyManager example usage. Key = "my_item"')
+    print('KeyManager example usage. Key = "my_item"')
 
-    # Add or update item and save encrypted value
     key_manager.add("my_item")
 
-    # Get the decrypted value
     value = key_manager.get("my_item")
     print(f"Decrypted value: {value}")
 
-    # List all item names
-    items = key_manager.list()
-    print("All item names:", items)
+    print("All item names:", key_manager.list())
 
-    # update item names
     key_manager.update("my_item")
-    print("Update item names:", items)
-
-    # Get latest decrypted value
     value = key_manager.get("my_item")
-    print(f"Decrypted value: {value}")
+    print(f"Updated decrypted value: {value}")
 
-    # Remove an item
-    print(f"Remove value: {value}")
     key_manager.remove("my_item")
-    items = key_manager.list()
-    print("Final item list:", items)
+    print("Final item list:", key_manager.list())

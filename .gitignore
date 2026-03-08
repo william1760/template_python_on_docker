@@ -163,3 +163,4 @@ cython_debug/
 
 src/LOGS/
 src/DATA/
+src/.env

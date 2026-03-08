@@ -1,8 +1,11 @@
+import os
+import secrets
 import docker
 import subprocess
 import argparse
 from docker import errors
 from enum import Enum
+
 
 # Color coding
 text_color_red = '\033[31m'
@@ -47,6 +50,7 @@ class DockerCtrl:
         self.bash_type: str = ''
         self.restart_policy: str = ''
         self.setup: str = ''
+        self.secret_file: str = '.docker_secret'
         self.client = docker.from_env()
         self._load_config(config_file)
 
@@ -86,6 +90,8 @@ class DockerCtrl:
                 self.setup = value.strip('"')
             elif key == 'restart_policy':
                 restart_policy_type = value.strip('"')
+            elif key == 'docker_secret':
+                self.secret_file = value.strip('"')
 
         for enum_member in BashStyle:
             if enum_member.name == bash_type:
@@ -103,7 +109,17 @@ class DockerCtrl:
               f'image_tag = \'{text_color_blue}{self.image_tag}{text_color_reset}\' | '
               f'restart_policy = \'{text_color_blue}{restart_policy_type}{text_color_reset}\' | '
               f'bash_type = \'{text_color_blue}{self.bash_type}{text_color_reset}\' | '
-              f'setup = \'{text_color_blue}{self.setup}{text_color_reset}\'')
+              f'setup = \'{text_color_blue}{self.setup}{text_color_reset}\' | '
+              f'docker_secret = \'{text_color_blue}{self.secret_file}{text_color_reset}\'')
+
+    def _read_master_password(self) -> str:
+        """Read the master password from the host-side secret file."""
+        if not os.path.exists(self.secret_file):
+            print(f'{text_color_red}[docker_ctrl]{text_color_reset} '
+                  f'\'{self.secret_file}\' not found. Run --build first.')
+            exit(1)
+        with open(self.secret_file, 'r') as f:
+            return f.read().strip()
 
     def _image_exist(self):
         try:
@@ -188,6 +204,17 @@ class DockerCtrl:
                 print(f'{text_color_white}[docker_build]{text_color_reset} '
                       f'Docker image  \'{text_color_blue}{self.docker_image}{text_color_reset}\' '
                       f'built successfully (IMAGE ID: {text_color_yellow}{image_id}{text_color_reset}).')
+
+                # Generate a new master password and save to host-side secret file.
+                # This replaces the previous password — run --setup after every --build.
+                master_password = secrets.token_hex(32)
+                with open(self.secret_file, 'w') as f:
+                    f.write(master_password)
+                os.chmod(self.secret_file, 0o600)
+                print(f'{text_color_white}[docker_build]{text_color_reset} '
+                      f'Master password generated and saved to '
+                      f'\'{text_color_yellow}{self.secret_file}{text_color_reset}\'. '
+                      f'Run {text_color_green}--setup{text_color_reset} next.')
         except subprocess.CalledProcessError as e:
             print(f'{text_color_white}[docker_build]{text_color_reset} Build failed: {e}')
         except Exception as e:
@@ -256,11 +283,13 @@ class DockerCtrl:
                 if interactive:
                     self._interactive_session(InteractMode.SPAWNING)
                 else:
+                    master_password = self._read_master_password()
                     container = self.client.containers.run(  # type: ignore[call-overload]
                         image=self.docker_image,
                         name=self.docker_image,
                         detach=True,
-                        restart_policy=restart_policy_dict
+                        restart_policy=restart_policy_dict,
+                        environment={"KEYMANAGER_PASSWORD": master_password}
                     )
                     container_id = container.short_id
 

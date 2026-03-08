@@ -20,6 +20,7 @@ def config_file(tmp_path):
         'bash_type="SH"\n'
         'restart_policy="UNLESS_STOPPED"\n'
         'setup="python main.py --setup"\n'
+        'docker_secret=".docker_secret"\n'
     )
     return str(config)
 
@@ -44,6 +45,7 @@ class TestLoadConfig:
         assert ctrl.bash_type == BashStyle.SH.value
         assert ctrl.restart_policy == RestartPolicy.UNLESS_STOPPED.value
         assert ctrl.setup == 'python main.py --setup'
+        assert ctrl.secret_file == '.docker_secret'
 
     def test_missing_file_exits(self, tmp_path):
         with patch('docker.from_env'):
