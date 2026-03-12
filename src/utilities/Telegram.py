@@ -11,6 +11,12 @@ class Telegram:
         self.telegram_bot = self.__get_token_key('telegram_bot')
         self.telegram_token = self.__get_chat_id(telegram_chat, self.telegram_bot)
 
+        if self.telegram_token is None:
+            raise ValueError(
+                f"[Telegram] Chat ID for '{telegram_chat}' not found. "
+                "Add the bot to the chat, send a message, then re-run --setup."
+            )
+
         # Debug
         # logging.debug(f'[Telegram] telegram_bot: {self.telegram_bot}, telegram_token: {self.telegram_token}
 
@@ -52,10 +58,10 @@ class Telegram:
             if response.status_code == 200:
                 data = response.json()
             else:
-                logging.error('Error fetching updates:', response.text)
+                logging.error(f'Error fetching updates: {response.text}')
                 return None
         except requests.RequestException as e:
-            logging.error('Error during API request:', str(e))
+            logging.error(f'Error during API request: {e}')
             return None
 
         largest_update_id = None
@@ -110,29 +116,24 @@ class Telegram:
         logging.debug(f'[Telegram][__validate_message] Message: "{sanitized_message}"')
         return sanitized_message
 
-    @staticmethod
-    def display_token(telegram_chat: str):
+    def display_token(self, telegram_chat: str):
         """
         Display the existence and value of the Telegram token for the specified chat.
 
         Args:
             telegram_chat (str): The name of the chat.
-
-        Returns:
-            None
         """
         token_name = "telegram_bot"
-        key_manager = KeyManager()
 
-        if key_manager.exists(token_name) == 0:
+        if not self.key_manager.exists(token_name):
             print(f"[Telegram][init_token_key] {token_name} does not exist.")
         else:
-            print(f"[Telegram][init_token_key] {token_name} exists and value '{key_manager.get(token_name)}'.")
+            print(f"[Telegram][init_token_key] {token_name} exists and value '{self.key_manager.get(token_name)}'.")
 
-        if key_manager.exists(telegram_chat) == 0:
+        if not self.key_manager.exists(telegram_chat):
             print(f"[Telegram][init_token_key] {telegram_chat} does not exist.")
         else:
-            print(f"[Telegram][init_token_key] {telegram_chat} exists and value '{key_manager.get(telegram_chat)}.")
+            print(f"[Telegram][init_token_key] {telegram_chat} exists and value '{self.key_manager.get(telegram_chat)}'.")
 
     def send_message(self, message: str):
         """
@@ -142,12 +143,12 @@ class Telegram:
             message (str): The message to be sent.
 
         Returns:
-            None
+            bool: True if sent successfully, False otherwise.
         """
         validated_message = self.validate_message(message)
         if not validated_message:
             logging.error("[Telegram][send_message] Message validation failed. No message sent.")
-            return
+            return False
 
         bot_token = self.telegram_bot
         try:
@@ -156,11 +157,7 @@ class Telegram:
                 'chat_id': self.telegram_token,
                 'text': validated_message
             }
-            headers = {
-                'Authorization': f'Bearer {bot_token}',
-                'Content-Type': 'application/json'
-            }
-            response = requests.post(url, json=data, headers=headers, timeout=10)
+            response = requests.post(url, json=data, timeout=10)
             response.raise_for_status()
             return True
         except requests.exceptions.RequestException as e:
