@@ -110,7 +110,7 @@ class Calendarific:
                 "Country ID": holiday_item['country']['id'].upper(),
                 "Country Name": holiday_item['country']['name'],
                 "Name": holiday_item['name'],
-                "Date ISO": holiday_item['date']['iso'],
+                "Date ISO": holiday_item['date']['iso'][:10],
                 "Type": ', '.join(holiday_item['type']),
                 "Primary Type": holiday_item.get('primary_type', ""),
                 "Locations": holiday_item.get('locations', "")
