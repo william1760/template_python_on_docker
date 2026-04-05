@@ -94,10 +94,9 @@ class KeyManager:
         sentinel = next((k for k in keys_data if k['Name'] == self._VALIDATION_NAME), None)
 
         if sentinel is None:
-            raise ValueError(
-                "[KeyManager] Token.key exists but has no validation entry. "
-                "Cannot verify master password — aborting to prevent data corruption."
-            )
+            # Legacy file with no sentinel — bootstrap one with the current password.
+            self._write_keys_to_file(self._read_keys_from_file())
+            return
 
         salt = base64.b64decode(sentinel['Salt'])
         try:
@@ -108,7 +107,7 @@ class KeyManager:
             )
 
     def _read_keys_from_file(self, skip_validation=False) -> list:
-        if os.path.exists(self.token_file_path):
+        if os.path.exists(self.token_file_path) and os.path.getsize(self.token_file_path) > 0:
             with open(self.token_file_path, 'r') as token_file:
                 data = json.load(token_file)
             if not skip_validation:

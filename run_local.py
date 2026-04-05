@@ -34,8 +34,12 @@ _ensure_keymanager_password()
 
 # subprocess inherits os.environ from this process, so the env var flows through.
 # cwd='src' mirrors how main.py runs inside Docker (workdir is /app/src).
-result = subprocess.run(
-    [sys.executable, 'main.py'] + sys.argv[1:],
-    cwd='src'
-)
-sys.exit(result.returncode)
+try:
+    result = subprocess.run(
+        [sys.executable, 'main.py'] + sys.argv[1:],
+        cwd='src'
+    )
+    sys.exit(result.returncode)
+except KeyboardInterrupt:
+    print('\nAborted.')
+    sys.exit(130)
