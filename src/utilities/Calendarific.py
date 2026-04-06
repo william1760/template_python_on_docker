@@ -101,6 +101,13 @@ class Calendarific:
         # Return a fallback if the country is not found
         return self.default_type
 
+    def get_location_filter(self, country_code: str) -> str | None:
+        """Return the configured locations filter for a country, or None if not set."""
+        for country in self.countries:
+            if country["code"] == country_code:
+                return country.get("locations", None)
+        return None
+
     @staticmethod
     def transform_holiday_data(holidays):
         count_width = len(str(len(holidays)))
@@ -198,8 +205,18 @@ class Calendarific:
         for country_code in countries:
             try:
                 holidays = self.get_holidays_by_country(country_code, selected_year)
+                location_filter = self.get_location_filter(country_code)
                 matching_holidays = [
-                    holiday for holiday in holidays if holiday.get("Date ISO") == target_date.strftime("%Y-%m-%d")
+                    holiday for holiday in holidays
+                    if holiday.get("Date ISO") == target_date.strftime("%Y-%m-%d")
+                    and (
+                        location_filter is None
+                        or not holiday.get("Locations")
+                        or holiday.get("Locations", "").strip().lower() == "all"
+                        or location_filter.lower() in {
+                            loc.strip().lower() for loc in holiday.get("Locations", "").split(",")
+                        }
+                    )
                 ]
                 result_array.extend(matching_holidays)
             except Exception as e:
