@@ -33,6 +33,8 @@ docker_secret=".docker_secret"
    {
    "title": "template_python_on_docker",
    "log_file_name": "template_python_on_docker",
+   "log_level": "INFO",
+   "log_file_level": "DEBUG",
    "interval": 1,
    "schedule": "",
    "schedule_misfire_grace_time": 300,
@@ -44,7 +46,9 @@ docker_secret=".docker_secret"
 
 ### Fields:
    - `title`: The title of the application.
-   - `log_file_name`: The name of the log file.
+   - `log_file_name`: Base name of the log file (e.g. `app.log`); rotated files are suffixed with the date (e.g. `app.log.20260418`).
+   - `log_level`: Console output level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). Defaults to `INFO`.
+   - `log_file_level`: File output level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). Defaults to `DEBUG`.
    - `interval`: Interval in minutes for tasks (0 = disabled).
    - `schedule`: Scheduled time in HH:MM format (empty string = disabled).
    - `schedule_misfire_grace_time`: Grace time for missed schedules (seconds).
@@ -71,8 +75,25 @@ python run_local.py --setup
 # Run main logic once immediately
 python run_local.py --run
 
+# Run main logic once, suppressing Telegram notifications
+python run_local.py --run --silent
+
 # Run scheduler loop (default)
 python run_local.py
 ```
 
 > **Note:** `.docker_secret` is gitignored and chmod 600. It is the single source of truth for the master password shared between local dev and Docker. If it is regenerated, `Token.key` must be re-created via `--setup`.
+
+---
+
+## Log rotation
+
+Log files are rotated daily at midnight using `TimedRotatingFileHandler`. The active log file uses a fixed base name (e.g. `template_python_on_docker.log`); rotated files are suffixed with the date (e.g. `template_python_on_docker.log.20260418`). Old files are deleted automatically after `log_file_level` retention days (controlled by `backupCount`).
+
+Set `log_level` and `log_file_level` independently in `config.json` to control what appears on the console vs. what is written to the file:
+
+| Scenario            | `log_level` | `log_file_level` |
+|---------------------|-------------|------------------|
+| Production (default)| `INFO`      | `DEBUG`          |
+| Debugging           | `DEBUG`     | `DEBUG`          |
+| Quiet               | `WARNING`   | `INFO`           |

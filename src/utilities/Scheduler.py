@@ -107,6 +107,7 @@ class Scheduler:
             print("[Scheduler.start] Starting the scheduler...")
             logging.info("[Scheduler.start] Scheduler is starting...")
             self.scheduler.start()
+            self.show_jobs()
         except Exception as e:
             print(f"[Scheduler.start] Scheduler stopped due to an unexpected error: {e}")
             logging.error(f"[Scheduler.start] Scheduler stopped due to an unexpected error: {e}")

@@ -19,7 +19,7 @@ def setup_config():
     print(f'Config: {config_data}')
 
 
-def main(trigger_notification: bool = False):
+def main(trigger_notification: bool = False, silent: bool = False):
     global config
     main_title = ConfigManager.get(config, "title")
     notification = ConfigManager.get(config, "notification")
@@ -27,7 +27,7 @@ def main(trigger_notification: bool = False):
 
     result_message = f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} Function "main" called'
 
-    if notification.lower() == 'y' or notification.lower() == 'a' or trigger_notification:
+    if not silent and (notification.lower() == 'y' or notification.lower() == 'a' or trigger_notification):
         telegram_message = f"[{main_title}] {result_message}"
         Log4Me.log_and_print(f'[main] telegram_message: {telegram_message}', "debug")
         telegram_instance = Telegram(telegram_chatroom)
@@ -49,21 +49,32 @@ if __name__ == "__main__":
         config = ConfigManager.load_config(config_path)
         log_file_name = ConfigManager.get(config, "log_file_name")
         title = ConfigManager.get(config, "title")
+        log_level = getattr(logging, ConfigManager.get(config, "log_level", "INFO").upper(), logging.INFO)
+        log_file_level = getattr(logging, ConfigManager.get(config, "log_file_level", "DEBUG").upper(), logging.DEBUG)
 
         ConsoleTitle.show_title(title, False, 60)
-        Log4Me.init_logging(log_name=log_file_name)
+        Log4Me.init_logging(log_name=log_file_name, console_logging_level=log_level, file_logging_level=log_file_level)
         logging.info(f'[Main] Load Config: {config}')
 
         parser = argparse.ArgumentParser(description=f"{title}")
         parser.add_argument('--setup', action="store_true", help="Setup configuration")
         parser.add_argument('--run', action="store_true", help="Execute now without schedule")
+        parser.add_argument('--silent', action="store_true", help="Suppress Telegram notifications (only with --run)")
 
         args = parser.parse_args()
 
         if args.setup:
+            selected = ['--setup']
+        elif args.run:
+            selected = ['--run'] + (['--silent'] if args.silent else [])
+        else:
+            selected = ['scheduler (default)']
+        Log4Me.log_and_print(f'[Main] Mode: {", ".join(selected)}')
+
+        if args.setup:
             setup_config()
         elif args.run:
-            main()
+            main(silent=args.silent)
         else:
             job_schedule = Scheduler()
 
@@ -81,7 +92,6 @@ if __name__ == "__main__":
                                  checkpoint_notification=cp_notification,
                                  misfire_grace_time=int(ConfigManager.get(config, "schedule_misfire_grace_time", 30)))
 
-            job_schedule.show_jobs()
             job_schedule.start()
 
             try:
